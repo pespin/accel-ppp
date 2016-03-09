@@ -1145,6 +1145,9 @@ static void ipoe_session_terminated(struct ipoe_session *ses)
 	if (ses->l4_redirect_set)
 		ipoe_change_l4_redirect(ses, 1);
 
+	if (!ses->serv->opt_shared)
+		ses->ctrl.dont_ifcfg = 1;
+
 	ap_session_finished(&ses->ses);
 }
 
@@ -2115,6 +2118,9 @@ static void ipoe_serv_release(struct ipoe_serv *serv)
 
 	if (serv->timer.tpd)
 		triton_timer_del(&serv->timer);
+
+	if (serv->opt_up)
+		ipoe_nl_del_interface(serv->ifindex);
 
 	if (serv->vid) {
 		log_info2("ipoe: remove vlan %s\n", serv->ifname);
