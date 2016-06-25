@@ -28,7 +28,8 @@
 #include "memdebug.h"
 
 int __export conf_ppp_verbose;
-int conf_unit_cache = 0;
+int conf_unit_cache;
+static int conf_unit_preallocate;
 
 static mempool_t buf_pool;
 
@@ -114,7 +115,11 @@ int __export establish_ppp(struct ppp_t *ppp)
 	ppp->chan_hnd.fd = ppp->chan_fd;
 	ppp->chan_hnd.read = ppp_chan_read;
 
-	log_ppp_debug("ppp establishing\n");
+	if (conf_unit_preallocate) {
+		if (connect_ppp_channel(ppp))
+			goto exit_close_chan;
+	} else
+		log_ppp_debug("ppp establishing\n");
 
 	if (ap_session_starting(&ppp->ses))
 		goto exit_free_buf;
@@ -139,6 +144,9 @@ int __export connect_ppp_channel(struct ppp_t *ppp)
 {
 	struct pppunit_cache *uc = NULL;
 	struct ifreq ifr;
+
+	if (ppp->unit_fd != -1)
+		return 0;
 
 	if (uc_size) {
 		pthread_mutex_lock(&uc_lock);
@@ -695,6 +703,12 @@ static void load_config(void)
 		conf_unit_cache = atoi(opt);
 	else
 		conf_unit_cache = 0;
+
+	opt = conf_get_opt("ppp", "unit-preallocate");
+	if (opt)
+		conf_unit_preallocate = atoi(opt);
+	else
+		conf_unit_preallocate = 0;
 }
 
 static void init(void)
